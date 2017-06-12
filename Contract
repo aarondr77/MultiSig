@@ -1,0 +1,108 @@
+pragma solidity ^0.4.8;
+
+contract MultiSig {
+    
+    function () payable;
+    
+    
+    // I am using a mapping because I think it is more efficient than an array. 
+    // Because if I want to check if someone is an owner, I can just look at their 
+    // mapping instead of cycling through the entire array. However, when the code is 
+    // running, how do mappings work? Does the code cycle through every key until it
+    // finds the one I am looking for or does it just got straight to the key in 
+    // an efficient way - like a BST?
+    mapping(address => bool) owners;
+    uint required;
+    uint numberOfTransactions = 0;
+    mapping (uint => transaction) allTransactions;
+    // I can delete a transaction from the mapping by using "delete transactionID;"
+    
+    struct transaction {
+        address destination;
+        uint value;
+        bytes data;
+        uint yehVotes;
+        bool executed;
+        mapping (address => bool) voted;
+        
+    }
+    
+    modifier messageFrom (address sender) {
+        require(sender == address(this));
+        _;
+    }
+    
+    // to check if the person is an owner, then checkCondition = true
+    // to check if the person is NOT an owner, then checkCondition = false
+    modifier isOwner (address owner, bool checkCondition) {
+        bool result = owners[owner] == checkCondition;
+        if (result) {
+            _;
+        }
+    }
+    
+    modifier hasVoted (address owner, bool checkCondition, uint transactionID) {
+        bool voted = allTransactions[transactionID].voted[msg.sender];
+        if (voted == checkCondition) {
+            _;
+        }
+    }
+    
+    function MultiSig (address [] _owners, uint _required) {
+        uint length = _owners.length;
+        require (length <= 20);
+        for (uint i = 0; i < length; i++) {
+            owners[_owners[i]] = true;
+        }
+        required = _required;
+    }
+    
+    
+    function addTransaction (address _destination, uint _value, bytes _data) {
+        uint transactionNumber = numberOfTransactions;
+        numberOfTransactions ++;
+        allTransactions [transactionNumber] = transaction ({
+            destination: _destination,
+            value: _value,
+            data: _data,
+            yehVotes: 0,
+            executed: false
+        });
+    }
+    
+    function addOwner (address owner) messageFrom(msg.sender) isOwner(owner, false) {
+        owners[owner] = true;
+    }
+    
+    function removeOwner (address owner) messageFrom(msg.sender) isOwner(owner, true) {
+        delete(owners[owner]);
+    }
+    
+    function changeRequirement (uint newRequirement) messageFrom(msg.sender) {
+        required = newRequirement;
+    }
+    
+    function confirmTransaction (uint transactionID) isOwner(msg.sender, true)
+            hasVoted (msg.sender, false, transactionID) {
+        allTransactions[transactionID].voted[msg.sender] = true;
+        allTransactions[transactionID].yehVotes += 1;
+    }
+    
+    function revokeConfirmation (uint transactionID) isOwner(msg.sender, true)
+            hasVoted (msg.sender, true, transactionID) {
+        allTransactions[transactionID].voted[msg.sender] = false;
+        allTransactions[transactionID].yehVotes -= 1;
+    }
+    
+    function isConfirmed (uint transactionID) returns (bool) {
+        bool result = allTransactions[transactionID].yehVotes >= required;
+        return result;
+    }
+    
+    function executeTransaction (uint transactionID) isOwner (msg.sender, true) {
+        if (isConfirmed(transactionID) && allTransactions[transactionID].executed == false) {
+            address(this).call.value(allTransactions[transactionID].value)(allTransactions[transactionID].data);
+            allTransactions[transactionID].executed = true;
+        }
+    }
+}
