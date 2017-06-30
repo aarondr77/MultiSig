@@ -4,13 +4,6 @@ contract MultiSig {
     
     function () payable;
     
-    
-    // I am using a mapping because I think it is more efficient than an array. 
-    // Because if I want to check if someone is an owner, I can just look at their 
-    // mapping instead of cycling through the entire array. However, when the code is 
-    // running, how do mappings work? Does the code cycle through every key until it
-    // finds the one I am looking for or does it just got straight to the key in 
-    // an efficient way - like a BST?
     mapping(address => bool) owners;
     uint required;
     uint numberOfTransactions = 0;
@@ -21,7 +14,7 @@ contract MultiSig {
         address destination;
         uint value;
         bytes data;
-        uint yehVotes;
+        uint yesVotes;
         bool executed;
         mapping (address => bool) voted;
         
@@ -65,7 +58,7 @@ contract MultiSig {
             destination: _destination,
             value: _value,
             data: _data,
-            yehVotes: 0,
+            yesVotes: 0,
             executed: false
         });
     }
@@ -85,17 +78,17 @@ contract MultiSig {
     function confirmTransaction (uint transactionID) isOwner(msg.sender, true)
             hasVoted (msg.sender, false, transactionID) {
         allTransactions[transactionID].voted[msg.sender] = true;
-        allTransactions[transactionID].yehVotes += 1;
+        allTransactions[transactionID].yesVotes += 1;
     }
     
     function revokeConfirmation (uint transactionID) isOwner(msg.sender, true)
             hasVoted (msg.sender, true, transactionID) {
         allTransactions[transactionID].voted[msg.sender] = false;
-        allTransactions[transactionID].yehVotes -= 1;
+        allTransactions[transactionID].yesVotes -= 1;
     }
     
     function isConfirmed (uint transactionID) returns (bool) {
-        bool result = allTransactions[transactionID].yehVotes >= required;
+        bool result = allTransactions[transactionID].yesVotes >= required;
         return result;
     }
     
